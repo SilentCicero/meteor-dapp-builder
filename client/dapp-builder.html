@@ -1,0 +1,216 @@
+<head>
+    <title>dapp-builder</title>
+</head>
+
+<body>
+    {{> builder}}
+</body>
+
+<template name="dApp_html">
+<html>
+    <head>
+        <title>{{name}} dApp</title>
+    </head>
+    <body>
+        <h1>{{name}} dApp</h1>
+        
+        <h3>Create New {{name}} Contract</h3>
+        <p>This will deploy the {{name}} contract the the Ethereum blockchain}}</p>
+        <p>Try deploying the contract, then set your contract address at the line that looks like: `instance{{name}} = {{name}}.at('YOUR_CONTRACT_ADDRESS');`</p>
+        
+        {{#if constructor}}
+            {{#each constructor.inputs}}
+                <input type="text" id="{{../name}}{{name}}" class="" placeholder="{{name}} {{type}}" />
+            {{/each}}
+        {{/if}}
+        
+        <button id="{{name}}New">Deploy {{name}}</button>
+        
+        <div id="{{name}}NewMessage"></div>
+        
+        {{#each interface}}
+            {{#if name}}
+                <h3>{{name}}</h3>
+                {{#each inputs}}
+                    <input type="text" id="{{../name}}{{name}}" class="" placeholder="{{../name}} {{#if name}} {{name}} {{else}} {{type}} {{index}}{{/if}}" />
+                {{/each}}
+        
+                <div id="{{name}}Message"></div>
+
+                <button id="{{name}}Call">Call</button>
+                <button id="{{name}}Transact">Transact</button>
+        
+                <hr />
+            {{/if}}
+        {{/each}}
+        
+        <script  type="text/javascript"  src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+        <script type="text/javascript" src="https://raw.githack.com/ethereum/web3.js/master/dist/web3.js"></script>
+        <script type="text/javascript">{{> dApp_js}}</script>
+    </body>
+</html>
+</template>
+
+<template name="dApp_js">    
+    // Set the Ethereum node RPC provider location, usually someServer:8545
+    web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545')); 
+    
+    window.onload = function () {
+        // this will setup the contract factory, default call object and transaction object settings.
+        var {{name}} = web3.eth.contract({{interfaceString}});
+        var instance{{name}} = {{name}}.at('your_contract_address');
+        instance{{name}}.defaultCallObject = {};
+        instance{{name}}.defaultTransactionObject = {gas: 3000000, value: 0};
+    
+        // This will get the accounts and select account zero for use with transactions
+        web3.eth.getAccounts(function(err, result){
+            if(!err)
+                instance{{name}}.defaultTransactionObject.from = result[0];
+        });
+
+        // This will handle creating a new deployment of the {{name}} contract
+        document.getElementById("{{name}}New").onclick = function() {
+            $("#{{name}}NewMessage").html("Deploying contract {{name}} to the Ethereum blockchain.");
+
+            var defaultNewObject = instance{{name}}.defaultTransactionObject;
+            defaultNewObject.data = "{{bytecode}}";
+
+            {{name}}.new({{#if constructor}}{{#with constructor}}{{#each inputs}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}}{{name}}, {{/each}}{{/with}}{{/if}} instance{{name}}.defaultTransactionObject, function(err, result){
+                if(err)
+                    $("#{{name}}NewMessage").html("There was an error deploying contract {{name}} to the blockchain. The error was: " + String(err));
+
+                if(result.transactionHash)
+                    $("#{{name}}NewMessage").html("The contract deployment transaction is at hash: " + result.transactionHash + " the contract is still being deployed. This may take a minute or two...");
+
+                if(result.address)
+                    $("#{{name}}NewMessage").html("The {{name}} contract has been deployed to address: " + result.address);
+            });
+        };
+    
+        // REMEMBER: Some methods you may want to transact with, others you may just want to call. Remove and add the methods and buttons you need at will.
+
+        // if your result's from a method call are an array like [283, BigNumber], you can process different parts by using result[0] or result[1] for example. If a result is a BigNumber, use result[0].toNumber(10) to convert the BigNumber object to a normal integer. If your data is a hex string like 0x0000924982499, then use web3.toAscii(result[0]) to return a normal non hex value like "hey", for example.
+        // so use toNumber(10) to convert numbers
+        // and web3.toAscii(YOUR_HEX) to convert hex to ascii
+    
+{{#each interface}}
+
+    {{#if name}}
+        // this will handle the {{name}} contract call
+        document.getElementById("{{name}}Call").onclick = function() {
+            $("#{{name}}Message").html("Calling method {{name}}...");
+    
+            {{#each inputs}}
+            var {{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}} = $('#{{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}}').val();
+            {{/each}}
+
+            instance{{../name}}.{{name}}.call({{#each inputs}}{{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}},  {{/each}} instance{{../name}}.defaultCallObject, function(err, result){
+                if(err)
+                    $("#{{name}}Message").html("There was an error calling method {{name}}. The error was: " + String(err));
+
+                if(result)
+                    $("#{{name}}Message").html("The {{name}} result is: " + String(result));
+            });
+        }
+        
+        // this will handle the {{name}} contact transaction
+        document.getElementById("{{name}}Transact").onclick = function() {
+            $("#{{name}}Message").html("Transacting with method {{name}}... This may take a minute or two.");
+    
+            {{#each inputs}}
+            var {{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}} = $('#{{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}}').val();
+            {{/each}}
+
+            instance{{../name}}.{{name}}.sendTransaction({{#each inputs}}{{../name}}{{#if name}}{{name}}{{else}}{{type}}{{index}}{{/if}}, {{/each}}instance{{../name}}.defaultTransactionObject, function(err, result){
+                if(err)
+                    $("#{{name}}Message").html("There was an error transacting with method {{name}}. The error was: " + String(err));
+    
+                if(result)
+                    $("#{{name}}Message").html("The transaction went through successfully and is now being processed at hash: " + result);
+            });
+        }
+
+    {{/if}}
+{{/each}}
+
+    };
+    
+</template>
+
+<template name="message_isError">
+    <div class="ui negative message">
+        <i class="close icon"></i>
+        <div class="header">
+            Error Building dApp
+        </div>
+        <p>There was an error building your dApp, the error was: {{error}}</p>
+    </div>
+</template>
+
+<template name="message_isCompiling">
+    <div class="ui icon message">
+  <i class="notched circle loading icon"></i>
+  <div class="content">
+    <div class="header">
+      Building dApp
+    </div>
+    <p>We are building your dApp.</p>
+  </div>
+</div>
+</template>
+
+<template name="message_isBuilt">
+    <div class="ui positive message">
+        <i class="close icon"></i>
+        <div class="header">
+            dApp Built
+        </div>
+        <p>Your dApp has been built.</p>
+    </div>
+</template>
+    
+<template name="builder">
+    <div class="ui align header centered">
+        <h1 style="margin-top: 40px;">Welcome to dApp Builder</h1>
+    </div>
+    
+    <br />
+    
+    <div class="ui three column doubling stackable grid centered">
+        <div class="column">
+            <div class="ui segment form">
+                <h4>Solidity Contract</h4>
+                <textarea class="solidityCode"></textarea>
+                
+                {{#with TemplateVar.get 'state'}}
+                    {{#if isCompiling}}
+                        {{> message_isCompiling}}
+                    {{/if}}
+                
+                    {{#if isError}}
+                        {{> message_isError}}
+                    {{/if}}
+                
+                    {{#if isBuilt}}
+                        {{> message_isBuilt}}
+                    {{/if}}
+                    
+                {{/with}}
+                
+                <hr class="ui divider" />
+    
+                <button class="orange ui button button-build">
+                    Build dApp
+                </button>
+            </div>
+        </div>
+        <div class="column">
+            <div class="ui segment form">
+                <h4>HTML/JS dApp</h4>
+                <br />
+                <textarea>{{#with TemplateVar.get 'contract'}}{{> dApp_html}}{{/with}}</textarea>
+            </div>
+        </div>
+        
+    </div>
+</template>
